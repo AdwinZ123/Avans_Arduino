@@ -11,6 +11,7 @@
 #include "RF24.h"       // the library which helps us to control the radio modem
 
 #define LEDPIN 3        // Ditital pin connected to the LED.
+#define LM35PIN A0	/* LM35 O/P pin */
 
 // Initialise Sensors
 
@@ -19,8 +20,9 @@ Led led;
 int ledState = LOW;			              // ledState used to set the LED
 
 #define RF24_PAYLOAD_SIZE 32
-#define AAAD_ARO 0
-#define AAAD_MODULE 2
+#define AAAD_ARO 3
+#define AAAD_MODULE 3
+
 
 /* Hardware configuration: Set up nRF24L01 radio on SPI bus plus pins 9 & 10, which are CE & CSN pins  */
 RF24 radio(9, 10);
@@ -32,12 +34,22 @@ uint8_t rxData[RF24_PAYLOAD_SIZE];
 // Timing configuration
 unsigned long previousMillis = 0;     // will store last time LED was updated
 unsigned long currentMillis;
-unsigned long sampleTime = 1000;   // milliseconds of on-time
+unsigned long sampleTime = 5000;   // milliseconds of on-time
 
 // int to hex converter
 void printHex2(unsigned v) {
     Serial.print("0123456789ABCDEF"[v>>4]);
     Serial.print("0123456789ABCDEF"[v&0xF]);
+}
+
+void convertTemperatureToByteArray(double temperature, byte* buffer){
+  int value = int((temperature + 20.0) * 10);
+  buffer[0] = value >> 8;
+  buffer[1] = value & 0xFF;
+
+  printHex2(buffer[0]);
+  Serial.print(" ");
+  printHex2(buffer[1]);
 }
 
 void setup() {
@@ -71,20 +83,20 @@ void loop() {
   currentMillis = millis();
 
   if(currentMillis - previousMillis >= sampleTime) {
-   
-    unsigned long timeStamp = millis()/1000;
+
+    int temp_val = analogRead(LM35PIN) * 4.88 + 200;	/* Read Temperature */
+    Serial.print("Temperature = " + String(temp_val) + " Degree Celsius\n");
+
     uint8_t cursor = 0;
-    txData[cursor++] = timeStamp >> 24;
-    txData[cursor++] = timeStamp >> 16;
-    txData[cursor++] = timeStamp >> 8;
-    txData[cursor++] = timeStamp;
+    txData[cursor++] = temp_val >> 8;
+    txData[cursor++] = temp_val;
     while (cursor<RF24_PAYLOAD_SIZE) {
       txData[cursor++] = 0;
     }
         
   /****************** Transmit Mode ***************************/
 
-   // Print transmit data in Hex format
+  //  Print transmit data in Hex format
     Serial.print("txData: ");
     for (size_t i=0; i<cursor; ++i) {
       if (i != 0) Serial.print(" ");
