@@ -4,7 +4,9 @@
 #include <printf.h>
 
 #include "Led.h"
+#include "Stappenmotor.h"
 #include <Arduino.h>
+#include <AccelStepper.h>
 
 #include <SPI.h>
 #include <nRF24L01.h>  // to handle this particular modem driver
@@ -16,6 +18,7 @@
 #define STEPPIN 5
 #define DIRPIN 2
 #define ENPIN 8
+#define motorInterfaceType 1
 
 // Initialise Sensors
 
@@ -38,7 +41,7 @@ uint8_t rxData[RF24_PAYLOAD_SIZE];
 // Timing configuration
 unsigned long previousMillis = 0;  // will store last time LED was updated
 unsigned long currentMillis;
-unsigned long sampleTime = 5000;  // milliseconds of on-time
+unsigned long sampleTime = 15000;  // milliseconds of on-time
 
 unsigned long previousStepperMillis = 0;
 unsigned long stepperTime = 200;  // microseconds of on-time
@@ -59,22 +62,16 @@ void convertTemperatureToByteArray(double temperature, byte* buffer) {
   printHex2(buffer[1]);
 }
 
+AccelStepper stepper = AccelStepper(motorInterfaceType, STEPPIN, DIRPIN);
+int stepperPosition = 0;
+
 void setup() {
   Serial.begin(9600);
   Serial.println("nRF24 Application ARO" + String(AAAD_ARO) + ", Module" + String(AAAD_MODULE) + " Started!\n");
 
-
-  // Activate sensors
-
   // Activate actuators
-  pinMode(STEPPIN, OUTPUT);
-  pinMode(DIRPIN, OUTPUT);
-  pinMode(ENPIN, OUTPUT);
-  digitalWrite(ENPIN, LOW);
-
-
-  led.begin(LEDPIN);
-  led.setState(ledState);
+  stepper.setMaxSpeed(1000);
+  stepper.setAcceleration(100);
 
   // Activate Radio
   radio.begin();                  // Ativate the modem
@@ -92,27 +89,11 @@ void setup() {
 }
 
 void loop() {
-  currentMillis = millis();
-  if (currentMillis - previousStepperMillis >= stepperTime) {
-    // Stepper motor
-    digitalWrite(DIRPIN, HIGH);  // Enables the motor to move in a particular direction
-    for (int x = 0; x < 800; x++) {
-      Serial.print("Loop 1 \n");
-      digitalWrite(STEPPIN, HIGH);
-      delayMicroseconds(200);
-      digitalWrite(STEPPIN, LOW);
-      delayMicroseconds(200);
-    }
-
-    digitalWrite(DIRPIN, LOW);  //Changes the direction of rotation
-    for (int x = 0; x < 800; x++) {
-      Serial.print("Loop 2 \n");
-      digitalWrite(STEPPIN, HIGH);
-      delayMicroseconds(200);
-      digitalWrite(STEPPIN, LOW);
-      delayMicroseconds(200);
-    }
-  }
+  // stepper.moveTo(1000);
+  // stepper.runToPosition();
+  // // Move back to zero:
+  // stepper.moveTo(0);
+  // stepper.runToPosition();
 
   // check to see if it's time to change the state of the LED
   currentMillis = millis();
@@ -154,10 +135,14 @@ void loop() {
   /****************** Receive Mode ***************************/
 
   if (radio.available()) {  //'available' means whether valid bytes have been received and are waiting to be read from the receive buffer
+    Serial.print("Available \n");
     // Receive data from radio
-    while (radio.available()) {             // While there is data ready
-      radio.read(&rxData, sizeof(rxData));  // Get the payload
-    }
+
+    radio.read(&rxData, sizeof(rxData));
+    // while (radio.available()) {             // While there is data ready
+    //   radio.read(&rxData, sizeof(rxData));  // Get the payload
+    //   Serial.print("Reading \n");
+    // }
     // Print received data in Hex format
     Serial.print("rxData: ");
     for (size_t i = 0; i < RF24_PAYLOAD_SIZE; ++i) {
@@ -166,15 +151,50 @@ void loop() {
     }
     Serial.println();
 
+    switch (rxData[0]) {
+      case 0x01:
+        Serial.print("Ontvangen getal: 1 - uitklappen \n");
+        break;
+      case 0x02:
+        Serial.print("Ontvangen getal: 2 - inklappen \n");
+        break;
+      case 0x03:
+        Serial.print("Ontvangen getal: 3 - start \n");
+        break;
+      case 0x04:
+        Serial.print("Ontvangen getal: 4 - omhoog \n");
+        break;
+      case 0x05:
+        Serial.print("Ontvangen getal: 5 - omlaag \n");
+        break;
+      case 0x06:
+        Serial.print("Ontvangen getal: 6 - links \n");
+        stepperPosition += 50;
+        stepper.moveTo(stepperPosition);
+        stepper.runToPosition();
+        break;
+      case 0x07:
+        Serial.print("Ontvangen getal: 7 - rechts \n");
+        stepperPosition -= 50;
+        stepper.moveTo(stepperPosition);
+        stepper.runToPosition();
+        break;
+      default:
+        Serial.print("Ongeldig getal ontvangen: ");
+        printHex2(rxData[0]);
+        Serial.print(" \n");
+        break;
+    }
+
     // Switch led on Received command
-    if (rxData[0] == 0xFF) {
-      Serial.println("Led=on");
-      led.setState(HIGH);
-    }
-    if (rxData[0] == 0x7F) {
-      Serial.println("Led=off");
-      led.setState(LOW);
-    }
+    // if (rxData[0] == 0xFF) {
+    //   Serial.println("Led=on");
+    //   led.setState(HIGH);
+    // }
+    // if (rxData[0] == 0x7F) {
+    //   Serial.println("Led=off");
+    //   led.setState(LOW);
+    // }
   }
 
 }  // Loop
