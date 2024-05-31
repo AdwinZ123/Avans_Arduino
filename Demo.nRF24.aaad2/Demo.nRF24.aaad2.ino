@@ -36,7 +36,7 @@ RF24 radio(9, 10);
 const uint8_t rf24_channel[] = { 1, 26, 51, 76, 101 };                                                            // Radio channels set depending on satellite number
 const uint64_t addresses[] = { 0x4141414430LL, 0x4141414431LL, 0x4141414432LL, 0x4141414433LL, 0x4141414434LL };  //with radioNumber set to zero, the tx pipe will be 'AAAD0', which is basically HEX'4141414430', which is remote DESTINATION address for our transmitted data. The rx pipe code is the local receive address, which is what the remote device needs to set for the remote devices 'tx' pipe code.
 uint8_t txData[RF24_PAYLOAD_SIZE];
-uint8_t rxData[RF24_PAYLOAD_SIZE];
+uint8_t rxData[RF24_PAYLOAD_SIZE]; 
 
 // Timing configuration
 unsigned long previousMillis = 0;  // will store last time LED was updated
