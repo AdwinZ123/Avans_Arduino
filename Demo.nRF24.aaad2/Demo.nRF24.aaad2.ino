@@ -18,7 +18,7 @@
 #define STEPPIN 5
 #define DIRPIN 2
 #define ENPIN 8
-#define motorInterfaceType 1
+#define MOTORINTERFACETYPE 1
 
 // Initialise Sensors
 
@@ -62,16 +62,11 @@ void convertTemperatureToByteArray(double temperature, byte* buffer) {
   printHex2(buffer[1]);
 }
 
-AccelStepper stepper = AccelStepper(motorInterfaceType, STEPPIN, DIRPIN);
-int stepperPosition = 0;
+Stappenmotor stappenmotor(MOTORINTERFACETYPE, STEPPIN, DIRPIN, ENPIN);
 
 void setup() {
   Serial.begin(9600);
   Serial.println("nRF24 Application ARO" + String(AAAD_ARO) + ", Module" + String(AAAD_MODULE) + " Started!\n");
-
-  // Activate actuators
-  stepper.setMaxSpeed(1000);
-  stepper.setAcceleration(100);
 
   // Activate Radio
   radio.begin();                  // Ativate the modem
@@ -89,11 +84,6 @@ void setup() {
 }
 
 void loop() {
-  // stepper.moveTo(1000);
-  // stepper.runToPosition();
-  // // Move back to zero:
-  // stepper.moveTo(0);
-  // stepper.runToPosition();
 
   // check to see if it's time to change the state of the LED
   currentMillis = millis();
@@ -154,9 +144,11 @@ void loop() {
     switch (rxData[0]) {
       case 0x01:
         Serial.print("Ontvangen getal: 1 - uitklappen \n");
+        stappenmotor.KlapUit();
         break;
       case 0x02:
         Serial.print("Ontvangen getal: 2 - inklappen \n");
+        stappenmotor.KlapIn();
         break;
       case 0x03:
         Serial.print("Ontvangen getal: 3 - start \n");
@@ -169,15 +161,11 @@ void loop() {
         break;
       case 0x06:
         Serial.print("Ontvangen getal: 6 - links \n");
-        stepperPosition += 50;
-        stepper.moveTo(stepperPosition);
-        stepper.runToPosition();
+        stappenmotor.NaarLinks();
         break;
       case 0x07:
         Serial.print("Ontvangen getal: 7 - rechts \n");
-        stepperPosition -= 50;
-        stepper.moveTo(stepperPosition);
-        stepper.runToPosition();
+        stappenmotor.NaarRechts();
         break;
       default:
         Serial.print("Ongeldig getal ontvangen: ");
@@ -185,16 +173,6 @@ void loop() {
         Serial.print(" \n");
         break;
     }
-
-    // Switch led on Received command
-    // if (rxData[0] == 0xFF) {
-    //   Serial.println("Led=on");
-    //   led.setState(HIGH);
-    // }
-    // if (rxData[0] == 0x7F) {
-    //   Serial.println("Led=off");
-    //   led.setState(LOW);
-    // }
   }
 
 }  // Loop
