@@ -9,6 +9,7 @@
 #include <Servo.h>
 #include "ServoArm.h"
 #include "Temperatuursensor.h"
+#include "WaterLevelSensor.h"
 
 #include <SPI.h>
 #include <nRF24L01.h>  // to handle this particular modem driver
@@ -44,10 +45,13 @@ void printHex2(unsigned v) {
 Stappenmotor stappenmotor(MOTORINTERFACETYPE, STEPPIN, DIRPIN, ENPIN);
 ServoArm servo(1);
 Temperatuursensor temperatuursensor(LM35PIN);
+WaterLevelSensor waterLevelSensor();
 
 void setup() {
   Serial.begin(9600);
   Serial.println("nRF24 Application ARO" + String(AAAD_ARO) + ", Module" + String(AAAD_MODULE) + " Started!\n");
+
+  waterLevelSensor.Attach();
 
   servo.Attach(7);
 
@@ -106,8 +110,10 @@ void loop() {
         radio.stopListening();  // First, stop listening so we can talk.
         Serial.println(F("Now Sending"));
 
-        // Vloeistof oppompen - TODO
-
+        // Reservoir vullen
+        while(waterLevelSensor.GetWaterLevelPercentage() < 80){
+          // Vloeistof oppompen
+        }
 
         //Temperatuur opmeten en versturen
         int gemiddeldeTemperatuur = (temperatuursensor.MeetGemiddeldeTemperatuur() + 20) * 10; /* Read Temperature */
