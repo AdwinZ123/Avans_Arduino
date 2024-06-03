@@ -23,7 +23,7 @@ Stappenmotor::Stappenmotor(int motorInterfaceType, int stepPin, int dirPin, int 
 Stappenmotor::~Stappenmotor() {}
 
 void Stappenmotor::KlapUit() {
-  _huidigePositie += _klapUitPositie;
+  _huidigePositie = _klapUitPositie;
   _stepper.moveTo(_klapUitPositie);
   _stepper.runToPosition();
 }

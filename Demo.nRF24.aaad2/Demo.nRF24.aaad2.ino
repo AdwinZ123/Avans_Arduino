@@ -65,14 +65,13 @@ void convertTemperatureToByteArray(double temperature, byte* buffer) {
 }
 
 Stappenmotor stappenmotor(MOTORINTERFACETYPE, STEPPIN, DIRPIN, ENPIN);
-ServoArm sweeper1(15);
+ServoArm servo(1);
 
 void setup() {
   Serial.begin(9600);
   Serial.println("nRF24 Application ARO" + String(AAAD_ARO) + ", Module" + String(AAAD_MODULE) + " Started!\n");
 
-  
-  sweeper1.Attach(7);
+  servo.Attach(7);
 
   // Activate Radio
   radio.begin();                  // Ativate the modem
@@ -91,7 +90,7 @@ void setup() {
 
 void loop() {
 
-   sweeper1.Update();
+   servo.Update();
 
   // check to see if it's time to change the state of the LED
   // currentMillis = millis();
@@ -153,21 +152,23 @@ void loop() {
       case 0x01:
         Serial.print("Ontvangen getal: 1 - uitklappen \n");
         stappenmotor.KlapUit();
+        servo.KlapUit();
         break;
       case 0x02:
         Serial.print("Ontvangen getal: 2 - inklappen \n");
         stappenmotor.KlapIn();
+        servo.KlapIn();
         break;
       case 0x03:
         Serial.print("Ontvangen getal: 3 - start \n");
         break;
       case 0x04:
         Serial.print("Ontvangen getal: 4 - omhoog \n");
-        // myServo.write(100);
+        servo.Omhoog();
         break;
       case 0x05:
         Serial.print("Ontvangen getal: 5 - omlaag \n");
-        // myServo.write(0);
+        servo.Omlaag();
         break;
       case 0x06:
         Serial.print("Ontvangen getal: 6 - links \n");
