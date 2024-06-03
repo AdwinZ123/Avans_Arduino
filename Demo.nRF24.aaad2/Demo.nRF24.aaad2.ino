@@ -7,6 +7,8 @@
 #include "Stappenmotor.h"
 #include <Arduino.h>
 #include <AccelStepper.h>
+#include <Servo.h>
+#include "ServoArm.h"
 
 #include <SPI.h>
 #include <nRF24L01.h>  // to handle this particular modem driver
@@ -63,10 +65,13 @@ void convertTemperatureToByteArray(double temperature, byte* buffer) {
 }
 
 Stappenmotor stappenmotor(MOTORINTERFACETYPE, STEPPIN, DIRPIN, ENPIN);
+ServoArm servo(1);
 
 void setup() {
   Serial.begin(9600);
   Serial.println("nRF24 Application ARO" + String(AAAD_ARO) + ", Module" + String(AAAD_MODULE) + " Started!\n");
+
+  servo.Attach(7);
 
   // Activate Radio
   radio.begin();                  // Ativate the modem
@@ -85,42 +90,44 @@ void setup() {
 
 void loop() {
 
+   servo.Update();
+
   // check to see if it's time to change the state of the LED
-  currentMillis = millis();
+  // currentMillis = millis();
 
-  if (currentMillis - previousMillis >= sampleTime) {
+  // if (currentMillis - previousMillis >= sampleTime) {
 
-    int temp_val = analogRead(LM35PIN) * 4.88 + 200; /* Read Temperature */
-    Serial.print("Temperature = " + String(temp_val) + " Degree Celsius\n");
+  //   int temp_val = analogRead(LM35PIN) * 4.88 + 200; /* Read Temperature */
+  //   Serial.print("Temperature = " + String(temp_val) + " Degree Celsius\n");
 
-    uint8_t cursor = 0;
-    txData[cursor++] = temp_val >> 8;
-    txData[cursor++] = temp_val;
-    while (cursor < RF24_PAYLOAD_SIZE) {
-      txData[cursor++] = 0;
-    }
+  //   uint8_t cursor = 0;
+  //   txData[cursor++] = temp_val >> 8;
+  //   txData[cursor++] = temp_val;
+  //   while (cursor < RF24_PAYLOAD_SIZE) {
+  //     txData[cursor++] = 0;
+  //   }
 
-    /****************** Transmit Mode ***************************/
+  //   /****************** Transmit Mode ***************************/
 
-    //  Print transmit data in Hex format
-    Serial.print("txData: ");
-    for (size_t i = 0; i < cursor; ++i) {
-      if (i != 0) Serial.print(" ");
-      printHex2(txData[i]);
-    }
-    Serial.println();
+  //   //  Print transmit data in Hex format
+  //   Serial.print("txData: ");
+  //   for (size_t i = 0; i < cursor; ++i) {
+  //     if (i != 0) Serial.print(" ");
+  //     printHex2(txData[i]);
+  //   }
+  //   Serial.println();
 
-    radio.stopListening();  // First, stop listening so we can talk.
-    // Serial.println(F("Now Sending"));
+  //   radio.stopListening();  // First, stop listening so we can talk.
+  //   // Serial.println(F("Now Sending"));
 
-    // Transmit data to radio
-    radio.write(&txData, sizeof(txData));
+  //   // Transmit data to radio
+  //   radio.write(&txData, sizeof(txData));
 
-    radio.startListening();  // Now, continue listening
-    // Serial.println(F("Now Listing"));
+  //   radio.startListening();  // Now, continue listening
+  //   // Serial.println(F("Now Listing"));
 
-    previousMillis = currentMillis;
-  }
+  //   previousMillis = currentMillis;
+  // }
 
   /****************** Receive Mode ***************************/
 
@@ -145,19 +152,23 @@ void loop() {
       case 0x01:
         Serial.print("Ontvangen getal: 1 - uitklappen \n");
         stappenmotor.KlapUit();
+        servo.KlapUit();
         break;
       case 0x02:
         Serial.print("Ontvangen getal: 2 - inklappen \n");
         stappenmotor.KlapIn();
+        servo.KlapIn();
         break;
       case 0x03:
         Serial.print("Ontvangen getal: 3 - start \n");
         break;
       case 0x04:
         Serial.print("Ontvangen getal: 4 - omhoog \n");
+        servo.Omhoog();
         break;
       case 0x05:
         Serial.print("Ontvangen getal: 5 - omlaag \n");
+        servo.Omlaag();
         break;
       case 0x06:
         Serial.print("Ontvangen getal: 6 - links \n");
