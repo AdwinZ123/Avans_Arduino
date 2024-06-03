@@ -4,17 +4,19 @@
 
 Stappenmotor::Stappenmotor(int motorInterfaceType, int stepPin, int dirPin, int enPin) {
   _stepper = AccelStepper(motorInterfaceType, stepPin, dirPin);
+  _stepper.setCurrentPosition(0);
   _stepper.setMaxSpeed(1000);
   _stepper.setAcceleration(100);
+
 
   _motorInterfaceType = motorInterfaceType;
   _stepPin = stepPin;
   _dirPin = dirPin;
   _enPin = enPin;
 
-  _stapjes = 100;
+  _stapjes = 20;
   _huidigePositie = 0;
-  _klapUitPositie = 100;
+  _klapUitPositie = -200;
   _klapInPositie = 0;
 }
 
@@ -33,13 +35,13 @@ void Stappenmotor::KlapIn() {
 }
 
 void Stappenmotor::NaarLinks() {
-  _huidigePositie += _stapjes;
+  _huidigePositie -= _stapjes;
   _stepper.moveTo(_huidigePositie);
   _stepper.runToPosition();
 }
 
 void Stappenmotor::NaarRechts() {
-  _huidigePositie -= _stapjes;
+  _huidigePositie += _stapjes;
   _stepper.moveTo(_huidigePositie);
   _stepper.runToPosition();
 }
