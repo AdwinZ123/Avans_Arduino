@@ -22,6 +22,8 @@
 #define ENPIN 8
 #define MOTORINTERFACETYPE 1
 
+#define BUTTONPIN 3
+
 // Initialise Sensors
 
 // Initialise Actuators
@@ -72,6 +74,9 @@ void setup() {
   Serial.println("nRF24 Application ARO" + String(AAAD_ARO) + ", Module" + String(AAAD_MODULE) + " Started!\n");
 
   servo.Attach(7);
+
+  pinMode(BUTTONPIN, INPUT);
+  stappenmotor.SetZeroPosition(BUTTONPIN);
 
   // Activate Radio
   radio.begin();                  // Ativate the modem

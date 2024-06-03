@@ -4,7 +4,6 @@
 
 Stappenmotor::Stappenmotor(int motorInterfaceType, int stepPin, int dirPin, int enPin) {
   _stepper = AccelStepper(motorInterfaceType, stepPin, dirPin);
-  _stepper.setCurrentPosition(0);
   _stepper.setMaxSpeed(1000);
   _stepper.setAcceleration(100);
 
@@ -18,9 +17,22 @@ Stappenmotor::Stappenmotor(int motorInterfaceType, int stepPin, int dirPin, int 
   _huidigePositie = 0;
   _klapUitPositie = -200;
   _klapInPositie = 0;
+
+  _minPos = 0;
+  _maxPos = -220;
 }
 
 Stappenmotor::~Stappenmotor() {}
+
+void Stappenmotor::SetZeroPosition(int buttonPin) {
+  while (digitalRead(buttonPin) == LOW) {
+    int huidigePositie = _stepper.currentPosition();
+    _stepper.moveTo(huidigePositie + 5);
+    _stepper.runToPosition();
+  }
+
+  _stepper.setCurrentPosition(0);
+}
 
 void Stappenmotor::KlapUit() {
   _huidigePositie = _klapUitPositie;
@@ -35,13 +47,17 @@ void Stappenmotor::KlapIn() {
 }
 
 void Stappenmotor::NaarLinks() {
-  _huidigePositie -= _stapjes;
-  _stepper.moveTo(_huidigePositie);
-  _stepper.runToPosition();
+  if (_huidigePositie > _minPos) {
+    _huidigePositie -= _stapjes;
+    _stepper.moveTo(_huidigePositie);
+    _stepper.runToPosition();
+  }
 }
 
 void Stappenmotor::NaarRechts() {
-  _huidigePositie += _stapjes;
-  _stepper.moveTo(_huidigePositie);
-  _stepper.runToPosition();
+  if (_huidigePositie < _minPos) {
+    _huidigePositie += _stapjes;
+    _stepper.moveTo(_huidigePositie);
+    _stepper.runToPosition();
+  }
 }

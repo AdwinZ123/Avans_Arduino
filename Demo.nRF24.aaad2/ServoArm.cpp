@@ -23,6 +23,8 @@ void ServoArm::Attach(int pin) {
   _servo.attach(pin);
   _pos = _servo.read();
   _running = true;
+
+  this.Update(); // Mogelijk werkt dit niet, even testen
 }
 
 void ServoArm::Detach() {
