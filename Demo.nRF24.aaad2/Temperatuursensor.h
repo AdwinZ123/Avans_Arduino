@@ -3,17 +3,14 @@
 
 class Temperatuursensor{
   private:
-		bool _ledState;
     int _pin;
     
   public:
-		Temperatuursensor();
+		Temperatuursensor(int);
 		~Temperatuursensor();
 		
-		void begin(int);		
-
-		bool getState();
-		void setState(bool);
+    float GetTemperatuur();
+    float MeetGemiddeldeTemperatuur();
 };
 
 #endif
