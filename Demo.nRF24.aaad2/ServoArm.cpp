@@ -24,7 +24,7 @@ void ServoArm::Attach(int pin) {
   _pos = _servo.read();
   _running = true;
 
-  this.Update(); // Mogelijk werkt dit niet, even testen
+  Update(); // Mogelijk werkt dit niet, even testen
 }
 
 void ServoArm::Detach() {
