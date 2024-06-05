@@ -2,6 +2,21 @@
 #include <RF24_config.h>
 #include <nRF24L01.h>
 #include <printf.h>
+#include <Wire.h>
+
+#ifdef ARDUINO_SAMD_VARIANT_COMPLIANCE
+#define SERIAL SerialUSB
+#else
+#define SERIAL Serial
+#endif
+
+unsigned char low_data[8] = { 0 };
+unsigned char high_data[12] = { 0 };
+
+#define NO_TOUCH 0xFE
+#define THRESHOLD 100
+#define ATTINY1_HIGH_ADDR 0x78
+#define ATTINY2_LOW_ADDR 0x77
 
 #include "Stappenmotor.h"
 #include <Arduino.h>
@@ -9,13 +24,12 @@
 #include <Servo.h>
 #include "ServoArm.h"
 #include "Temperatuursensor.h"
-#include "WaterLevelSensor.h"
 
 #include <SPI.h>
 #include <nRF24L01.h>  // to handle this particular modem driver
 #include "RF24.h"      // the library which helps us to control the radio modem
 
-#define LM35PIN A0 /* LM35 O/P pin */
+#define LM35PIN A0 /* LM35 O/P pin - Temperatuursensor */
 
 #define STEPPIN 5
 #define DIRPIN 2
@@ -24,6 +38,7 @@
 
 #define BUTTONPIN 3
 #define VLOEISTOFPOMPPIN 4
+#define SERVOPIN 7
 
 #define RF24_PAYLOAD_SIZE 32
 #define AAAD_ARO 3
@@ -46,16 +61,19 @@ void printHex2(unsigned v) {
 Stappenmotor stappenmotor(MOTORINTERFACETYPE, STEPPIN, DIRPIN, ENPIN);
 ServoArm servo(1);
 Temperatuursensor temperatuursensor(LM35PIN);
-WaterLevelSensor waterLevelSensor;
+// WaterLevelSensor waterLevelSensor;
 
 void setup() {
   Serial.begin(9600);
   Serial.println("nRF24 Application ARO" + String(AAAD_ARO) + ", Module" + String(AAAD_MODULE) + " Started!\n");
 
-  pinMode(VLOEISTOFPOMPPIN, INPUT);
-  waterLevelSensor.Attach();
 
-  servo.Attach(7);
+  pinMode(VLOEISTOFPOMPPIN, INPUT);
+  digitalWrite(VLOEISTOFPOMPPIN, LOW);
+  Wire.begin();
+  // waterLevelSensor.Attach();
+
+  servo.Attach(SERVOPIN);
 
   pinMode(BUTTONPIN, OUTPUT);
   stappenmotor.SetZeroPosition(BUTTONPIN);
@@ -93,6 +111,9 @@ void loop() {
     }
     Serial.println();
 
+    Serial.print("Hoi \n");
+    Serial.println(rxData[0]);
+
     switch (rxData[0]) {
       case 0x01:
         Serial.print("Ontvangen getal: 1 - uitklappen \n");
@@ -101,70 +122,27 @@ void loop() {
         break;
       case 0x02:
         Serial.print("Ontvangen getal: 2 - inklappen \n");
-        stappenmotor.KlapIn();
         servo.KlapIn();
+        // stappenmotor.KlapIn();
+        stappenmotor.SetZeroPosition(BUTTONPIN);
         break;
       case 0x03:
         Serial.print("Ontvangen getal: 3 - start \n");
-
-        /****************** Transmit Mode ***************************/
-        // Berichten ontvangen uitzetten voor later kunnen versturen, dan kan de arm ook niet bewegen tijdens de meting
-        radio.stopListening();  // First, stop listening so we can talk.
-        Serial.println(F("Now Sending"));
-
-        // Reservoir vullen
-        while (waterLevelSensor.GetWaterLevelPercentage() < 40) {
-          // Vloeistof oppompen
-          // Set vloeistofpomp HIGH
-          digitalWrite(VLOEISTOFPOMPPIN, HIGH);
-        }
-        // Set vloeistofpomp LOW
-        digitalWrite(VLOEISTOFPOMPPIN, LOW);
-
-        //Temperatuur opmeten en versturen
-        int gemiddeldeTemperatuur = (temperatuursensor.MeetGemiddeldeTemperatuur() + 20) * 10; /* Read Temperature */
-        Serial.print("Temperature = " + String(gemiddeldeTemperatuur) + " Degree Celsius\n");
-
-        uint8_t cursor = 0;
-        txData[cursor++] = gemiddeldeTemperatuur >> 8;
-        txData[cursor++] = gemiddeldeTemperatuur;
-        while (cursor < RF24_PAYLOAD_SIZE) {
-          txData[cursor++] = 0;
-        }
-
-        //  Print transmit data in Hex format
-        Serial.print("txData: ");
-        for (size_t i = 0; i < cursor; ++i) {
-          if (i != 0) Serial.print(" ");
-          printHex2(txData[i]);
-        }
-        Serial.println();
-
-        // radio.stopListening();  // First, stop listening so we can talk.
-        // Serial.println(F("Now Sending"));
-
-        // Transmit data to radio
-        radio.write(&txData, sizeof(txData));
-
-        radio.startListening();  // Now, continue listening
-        Serial.println(F("Now Listing"));
-
-        /****************** Receive Mode ***************************/
-
+        VoerMetingUit();
         break;
-      case 0x04:
+      case 4:
         Serial.print("Ontvangen getal: 4 - omhoog \n");
         servo.Omhoog();
         break;
-      case 0x05:
+      case 5:
         Serial.print("Ontvangen getal: 5 - omlaag \n");
         servo.Omlaag();
         break;
-      case 0x06:
+      case 6:
         Serial.print("Ontvangen getal: 6 - links \n");
         stappenmotor.NaarLinks();
         break;
-      case 0x07:
+      case 7:
         Serial.print("Ontvangen getal: 7 - rechts \n");
         stappenmotor.NaarRechts();
         break;
@@ -177,3 +155,148 @@ void loop() {
   }
 
 }  // Loop
+
+void VoerMetingUit() {
+  /****************** Transmit Mode ***************************/
+  // Berichten ontvangen uitzetten voor later kunnen versturen, dan kan de arm ook niet bewegen tijdens de meting
+  radio.stopListening();  // First, stop listening so we can talk.
+  Serial.println(F("Now Sending"));
+
+  // Reservoir vullen
+  while (GetWaterLevelPercentage() < 40) {
+    // Vloeistof oppompen
+    // Set vloeistofpomp HIGH
+    digitalWrite(VLOEISTOFPOMPPIN, HIGH);
+    delay(500);
+  }
+  // Set vloeistofpomp LOW
+  digitalWrite(VLOEISTOFPOMPPIN, LOW);
+
+  //Temperatuur opmeten en versturen
+  int gemiddeldeTemperatuur = ((temperatuursensor.MeetGemiddeldeTemperatuur() + 20) * 10); /* Read Temperature */
+  Serial.print("Temperature = " + String(gemiddeldeTemperatuur) + " Degree Celsius\n");
+
+  uint8_t cursor = 0;
+  txData[cursor++] = gemiddeldeTemperatuur >> 8;
+  txData[cursor++] = gemiddeldeTemperatuur;
+  while (cursor < RF24_PAYLOAD_SIZE) {
+    txData[cursor++] = 0;
+  }
+
+  //  Print transmit data in Hex format
+  Serial.print("txData: ");
+  for (size_t i = 0; i < cursor; ++i) {
+    if (i != 0) Serial.print(" ");
+    printHex2(txData[i]);
+  }
+  Serial.println();
+
+  // radio.stopListening();  // First, stop listening so we can talk.
+  // Serial.println(F("Now Sending"));
+
+  // Transmit data to radio
+  radio.write(&txData, sizeof(txData));
+
+  radio.startListening();  // Now, continue listening
+  Serial.println(F("Now Listing"));
+
+  /****************** Receive Mode ***************************/
+}
+
+void GetHigh12SectionValue(void) {
+  memset(high_data, 0, sizeof(high_data));
+  Wire.requestFrom(ATTINY1_HIGH_ADDR, 12);
+  while (12 != Wire.available())
+    ;
+
+  for (int i = 0; i < 12; i++) {
+    high_data[i] = Wire.read();
+  }
+  delay(10);
+}
+
+void GetLow8SectionValue(void) {
+  memset(low_data, 0, sizeof(low_data));
+  Wire.requestFrom(ATTINY2_LOW_ADDR, 8);
+  while (8 != Wire.available())
+    ;
+
+  for (int i = 0; i < 8; i++) {
+    low_data[i] = Wire.read();  // receive a byte as character
+  }
+  delay(10);
+}
+
+int GetWaterLevelPercentage() {
+  int sensorvalue_min = 250;
+  int sensorvalue_max = 255;
+  int low_count = 0;
+  int high_count = 0;
+
+  // while (1) {
+  uint32_t touch_val = 0;
+  uint8_t trig_section = 0;
+  low_count = 0;
+  high_count = 0;
+  GetLow8SectionValue();
+  GetHigh12SectionValue();
+
+  Serial.println("low 8 sections value = ");
+  for (int i = 0; i < 8; i++) {
+    Serial.print(low_data[i]);
+    Serial.print(".");
+    if (low_data[i] >= sensorvalue_min && low_data[i] <= sensorvalue_max) {
+      low_count++;
+    }
+    if (low_count == 8) {
+      Serial.print("      ");
+      Serial.print("PASS");
+    }
+  }
+  Serial.println("  ");
+  Serial.println("  ");
+  Serial.println("high 12 sections value = ");
+  for (int i = 0; i < 12; i++) {
+    Serial.print(high_data[i]);
+    Serial.print(".");
+
+    if (high_data[i] >= sensorvalue_min && high_data[i] <= sensorvalue_max) {
+      high_count++;
+    }
+    if (high_count == 12) {
+      Serial.print("      ");
+      Serial.print("PASS");
+    }
+  }
+
+  Serial.println("  ");
+  Serial.println("  ");
+
+  for (int i = 0; i < 8; i++) {
+    if (low_data[i] > THRESHOLD) {
+      touch_val |= 1 << i;
+    }
+  }
+  for (int i = 0; i < 12; i++) {
+    if (high_data[i] > THRESHOLD) {
+      touch_val |= (uint32_t)1 << (8 + i);
+    }
+  }
+
+  while (touch_val & 0x01) {
+    trig_section++;
+    touch_val >>= 1;
+  }
+
+  int percentage = trig_section * 5;
+
+  SERIAL.print("water level = ");
+  SERIAL.print(trig_section * 5); // percentage
+  SERIAL.println("% ");
+  SERIAL.println(" ");
+  SERIAL.println("*********************************************************");
+
+  return percentage;
+  // delay(1000);
+  // }
+}

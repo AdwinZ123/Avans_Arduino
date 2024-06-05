@@ -21,10 +21,15 @@ ServoArm::~ServoArm() {}
 
 void ServoArm::Attach(int pin) {
   _servo.attach(pin);
-  _pos = _servo.read();
+  // _pos = _servo.read();
+  _nextPos = 0;
+  _pos = 0;
   _running = true;
 
-  Update(); // Mogelijk werkt dit niet, even testen
+  _servo.write(0);
+  delay(1000);
+
+  // Update(); // Mogelijk werkt dit niet, even testen
 }
 
 void ServoArm::Detach() {
@@ -34,6 +39,7 @@ void ServoArm::Detach() {
 void ServoArm::Update() {
   if ((millis() - _lastUpdate) > _updateInterval && _pos != _nextPos && _running)  // time to update
   {
+    Serial.print("Servo update \n");
     _lastUpdate = millis();
 
     if ((_pos >= _nextPos)) {
@@ -59,18 +65,23 @@ void ServoArm::KlapUit() {
 
 void ServoArm::KlapIn() {
   _nextPos = _klapInPositie;
-  _running = true;
+  _pos = _klapInPositie;
+  _servo.write(_pos);
+  delay(500);
+  // _running = true;
 }
 
 void ServoArm::Omhoog() {
-  if (_nextPos > _minPos) {
+  Serial.print("omhoog \n");
+  if (_nextPos >= _minPos) {
     _nextPos -= _stapjes;
     _running = true;
   }
 }
 
 void ServoArm::Omlaag() {
-  if (_nextPos < _maxPos) {
+  Serial.print("omlaag \n");
+  if (_nextPos <= _maxPos) {
     _nextPos += _stapjes;
     _running = true;
   }
