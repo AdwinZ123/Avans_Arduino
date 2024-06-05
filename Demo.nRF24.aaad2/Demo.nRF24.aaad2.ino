@@ -23,6 +23,7 @@
 #define MOTORINTERFACETYPE 1
 
 #define BUTTONPIN 3
+#define VLOEISTOFPOMPPIN 4
 
 #define RF24_PAYLOAD_SIZE 32
 #define AAAD_ARO 3
@@ -45,17 +46,18 @@ void printHex2(unsigned v) {
 Stappenmotor stappenmotor(MOTORINTERFACETYPE, STEPPIN, DIRPIN, ENPIN);
 ServoArm servo(1);
 Temperatuursensor temperatuursensor(LM35PIN);
-WaterLevelSensor waterLevelSensor();
+WaterLevelSensor waterLevelSensor;
 
 void setup() {
   Serial.begin(9600);
   Serial.println("nRF24 Application ARO" + String(AAAD_ARO) + ", Module" + String(AAAD_MODULE) + " Started!\n");
 
+  pinMode(VLOEISTOFPOMPPIN, INPUT);
   waterLevelSensor.Attach();
 
   servo.Attach(7);
 
-  pinMode(BUTTONPIN, INPUT);
+  pinMode(BUTTONPIN, OUTPUT);
   stappenmotor.SetZeroPosition(BUTTONPIN);
 
   // Activate Radio
@@ -111,9 +113,13 @@ void loop() {
         Serial.println(F("Now Sending"));
 
         // Reservoir vullen
-        while(waterLevelSensor.GetWaterLevelPercentage() < 80){
+        while (waterLevelSensor.GetWaterLevelPercentage() < 40) {
           // Vloeistof oppompen
+          // Set vloeistofpomp HIGH
+          digitalWrite(VLOEISTOFPOMPPIN, HIGH);
         }
+        // Set vloeistofpomp LOW
+        digitalWrite(VLOEISTOFPOMPPIN, LOW);
 
         //Temperatuur opmeten en versturen
         int gemiddeldeTemperatuur = (temperatuursensor.MeetGemiddeldeTemperatuur() + 20) * 10; /* Read Temperature */

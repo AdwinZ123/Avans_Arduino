@@ -60,8 +60,8 @@ int WaterLevelSensor::GetWaterLevelPercentage() {
   uint8_t trig_section = 0;
   low_count = 0;
   high_count = 0;
-  getLow8SectionValue();
-  getHigh12SectionValue();
+  GetLow8SectionValue();
+  GetHigh12SectionValue();
 
   Serial.println("low 8 sections value = ");
   for (int i = 0; i < 8; i++) {
