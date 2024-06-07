@@ -15,11 +15,11 @@ Stappenmotor::Stappenmotor(int motorInterfaceType, int stepPin, int dirPin, int 
 
   _stapjes = 20;
   _huidigePositie = 0;
-  _klapUitPositie = -200;
+  _klapUitPositie = -400;
   _klapInPositie = 0;
 
   _minPos = 0;
-  _maxPos = -220;
+  _maxPos = -480;
 }
 
 Stappenmotor::~Stappenmotor() {}
@@ -27,37 +27,59 @@ Stappenmotor::~Stappenmotor() {}
 void Stappenmotor::SetZeroPosition(int buttonPin) {
   while (digitalRead(buttonPin) == LOW) {
     int huidigePositie = _stepper.currentPosition();
-    _stepper.moveTo(huidigePositie + 5);
+    _stepper.moveTo(huidigePositie + 15);
     _stepper.runToPosition();
   }
 
+  _huidigePositie = 0;
   _stepper.setCurrentPosition(0);
+  Serial.print("Stepper current position: ");
+  Serial.print(_stepper.currentPosition());
+  Serial.print("\n");
 }
 
 void Stappenmotor::KlapUit() {
   _huidigePositie = _klapUitPositie;
   _stepper.moveTo(_klapUitPositie);
   _stepper.runToPosition();
+
+  Serial.print("Stepper current position: ");
+  Serial.print(_stepper.currentPosition());
+  Serial.print("\n");
 }
 
 void Stappenmotor::KlapIn() {
   _huidigePositie = _klapInPositie;
   _stepper.moveTo(_klapInPositie);
   _stepper.runToPosition();
+
+  Serial.print("Stepper current position: ");
+  Serial.print(_stepper.currentPosition());
+  Serial.print("\n");
 }
 
 void Stappenmotor::NaarLinks() {
-  if (_huidigePositie > _minPos) {
+  Serial.print("links \n");
+  if (_huidigePositie > _maxPos) {
     _huidigePositie -= _stapjes;
     _stepper.moveTo(_huidigePositie);
     _stepper.runToPosition();
+
+    Serial.print("Stepper current position: ");
+    Serial.print(_stepper.currentPosition());
+    Serial.print("\n");
   }
 }
 
 void Stappenmotor::NaarRechts() {
+  Serial.print("rechts \n");
   if (_huidigePositie < _minPos) {
     _huidigePositie += _stapjes;
     _stepper.moveTo(_huidigePositie);
     _stepper.runToPosition();
+
+    Serial.print("Stepper current position: ");
+    Serial.print(_stepper.currentPosition());
+    Serial.print("\n");
   }
 }

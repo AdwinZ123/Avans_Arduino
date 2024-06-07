@@ -15,7 +15,7 @@
 #include <nRF24L01.h>  // to handle this particular modem driver
 #include "RF24.h"      // the library which helps us to control the radio modem
 
-#define LM35PIN A0 /* LM35 O/P pin */
+#define LM35PIN A0 /* LM35 O/P pin - Temperatuursensor */
 
 #define STEPPIN 5
 #define DIRPIN 2
@@ -23,6 +23,8 @@
 #define MOTORINTERFACETYPE 1
 
 #define BUTTONPIN 3
+#define VLOEISTOFPOMPPIN 4
+#define SERVOPIN 7
 
 #define RF24_PAYLOAD_SIZE 32
 #define AAAD_ARO 3
@@ -45,17 +47,20 @@ void printHex2(unsigned v) {
 Stappenmotor stappenmotor(MOTORINTERFACETYPE, STEPPIN, DIRPIN, ENPIN);
 ServoArm servo(1);
 Temperatuursensor temperatuursensor(LM35PIN);
-WaterLevelSensor waterLevelSensor();
+WaterLevelSensor waterLevelSensor;
 
 void setup() {
   Serial.begin(9600);
   Serial.println("nRF24 Application ARO" + String(AAAD_ARO) + ", Module" + String(AAAD_MODULE) + " Started!\n");
 
+  pinMode(VLOEISTOFPOMPPIN, INPUT);
+  digitalWrite(VLOEISTOFPOMPPIN, LOW);
+
   waterLevelSensor.Attach();
 
-  servo.Attach(7);
+  servo.Attach(SERVOPIN);
 
-  pinMode(BUTTONPIN, INPUT);
+  pinMode(BUTTONPIN, OUTPUT);
   stappenmotor.SetZeroPosition(BUTTONPIN);
 
   // Activate Radio
@@ -79,8 +84,8 @@ void loop() {
 
   if (radio.available()) {  //'available' means whether valid bytes have been received and are waiting to be read from the receive buffer
     Serial.print("Available \n");
-    // Receive data from radio
 
+    // Receive data from radio
     radio.read(&rxData, sizeof(rxData));
 
     // Print received data in Hex format
@@ -92,73 +97,33 @@ void loop() {
     Serial.println();
 
     switch (rxData[0]) {
-      case 0x01:
+      case 1:
         Serial.print("Ontvangen getal: 1 - uitklappen \n");
         stappenmotor.KlapUit();
         servo.KlapUit();
         break;
-      case 0x02:
+      case 2:
         Serial.print("Ontvangen getal: 2 - inklappen \n");
-        stappenmotor.KlapIn();
         servo.KlapIn();
+        stappenmotor.SetZeroPosition(BUTTONPIN);
         break;
-      case 0x03:
+      case 3:
         Serial.print("Ontvangen getal: 3 - start \n");
-
-        /****************** Transmit Mode ***************************/
-        // Berichten ontvangen uitzetten voor later kunnen versturen, dan kan de arm ook niet bewegen tijdens de meting
-        radio.stopListening();  // First, stop listening so we can talk.
-        Serial.println(F("Now Sending"));
-
-        // Reservoir vullen
-        while(waterLevelSensor.GetWaterLevelPercentage() < 80){
-          // Vloeistof oppompen
-        }
-
-        //Temperatuur opmeten en versturen
-        int gemiddeldeTemperatuur = (temperatuursensor.MeetGemiddeldeTemperatuur() + 20) * 10; /* Read Temperature */
-        Serial.print("Temperature = " + String(gemiddeldeTemperatuur) + " Degree Celsius\n");
-
-        uint8_t cursor = 0;
-        txData[cursor++] = gemiddeldeTemperatuur >> 8;
-        txData[cursor++] = gemiddeldeTemperatuur;
-        while (cursor < RF24_PAYLOAD_SIZE) {
-          txData[cursor++] = 0;
-        }
-
-        //  Print transmit data in Hex format
-        Serial.print("txData: ");
-        for (size_t i = 0; i < cursor; ++i) {
-          if (i != 0) Serial.print(" ");
-          printHex2(txData[i]);
-        }
-        Serial.println();
-
-        // radio.stopListening();  // First, stop listening so we can talk.
-        // Serial.println(F("Now Sending"));
-
-        // Transmit data to radio
-        radio.write(&txData, sizeof(txData));
-
-        radio.startListening();  // Now, continue listening
-        Serial.println(F("Now Listing"));
-
-        /****************** Receive Mode ***************************/
-
+        VoerMetingUit();
         break;
-      case 0x04:
+      case 4:
         Serial.print("Ontvangen getal: 4 - omhoog \n");
         servo.Omhoog();
         break;
-      case 0x05:
+      case 5:
         Serial.print("Ontvangen getal: 5 - omlaag \n");
         servo.Omlaag();
         break;
-      case 0x06:
+      case 6:
         Serial.print("Ontvangen getal: 6 - links \n");
         stappenmotor.NaarLinks();
         break;
-      case 0x07:
+      case 7:
         Serial.print("Ontvangen getal: 7 - rechts \n");
         stappenmotor.NaarRechts();
         break;
@@ -171,3 +136,66 @@ void loop() {
   }
 
 }  // Loop
+
+void VoerMetingUit() {
+  /****************** Transmit Mode ***************************/
+  // Berichten ontvangen uitzetten voor later kunnen versturen, dan kan de arm ook niet bewegen tijdens de meting
+  radio.stopListening();  // First, stop listening so we can talk.
+  Serial.println(F("Now Sending"));
+
+  //Temperatuur opmeten en versturen
+  int gemiddeldeTemperatuur = ((temperatuursensor.MeetGemiddeldeTemperatuur() + 20) * 10); /* Read Temperature */
+  Serial.print("Temperature = " + String(gemiddeldeTemperatuur) + " Degree Celsius\n");
+
+  uint8_t cursor = 0;
+  txData[cursor++] = gemiddeldeTemperatuur >> 8;
+  txData[cursor++] = gemiddeldeTemperatuur;
+  while (cursor < RF24_PAYLOAD_SIZE) {
+    txData[cursor++] = 0;
+  }
+
+  //  Print transmit data in Hex format
+  Serial.print("txData: ");
+  for (size_t i = 0; i < cursor; ++i) {
+    if (i != 0) Serial.print(" ");
+    printHex2(txData[i]);
+  }
+  Serial.println();
+
+  // Transmit data to radio
+  radio.write(&txData, sizeof(txData));
+
+  radio.startListening();  // Now, continue listening
+  Serial.println(F("Now Listing"));
+
+  /****************** Receive Mode ***************************/
+
+  // Reservoir vullen
+  int percentage = waterLevelSensor.GetWaterLevelPercentage();
+  int vorigePercentage = percentage;
+  int tijd = millis();
+  bool isLow = true;
+
+  while (percentage < 40) {
+    // Vloeistof oppompen
+    if (isLow) {
+      digitalWrite(VLOEISTOFPOMPPIN, HIGH);
+      isLow = false;
+    }
+
+    // Fail safe voor als de water level sensor dezelfde waarde blijft uitmeten, ook als er meer water inzit.
+    if ((millis() - tijd) > 5000 && percentage == vorigePercentage) {
+      Serial.println("Fail safe actief");
+      break;
+    }
+
+    percentage = waterLevelSensor.GetWaterLevelPercentage();
+    if (percentage != vorigePercentage) {
+      vorigePercentage = percentage;
+      tijd = millis();
+    }
+  }
+
+  // Set vloeistofpomp LOW
+  digitalWrite(VLOEISTOFPOMPPIN, LOW);
+}
