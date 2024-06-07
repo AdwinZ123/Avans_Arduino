@@ -15,11 +15,11 @@ Stappenmotor::Stappenmotor(int motorInterfaceType, int stepPin, int dirPin, int 
 
   _stapjes = 20;
   _huidigePositie = 0;
-  _klapUitPositie = -200;
+  _klapUitPositie = -400;
   _klapInPositie = 0;
 
   _minPos = 0;
-  _maxPos = -240;
+  _maxPos = -480;
 }
 
 Stappenmotor::~Stappenmotor() {}

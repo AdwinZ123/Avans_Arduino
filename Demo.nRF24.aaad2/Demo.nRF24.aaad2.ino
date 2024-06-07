@@ -2,21 +2,6 @@
 #include <RF24_config.h>
 #include <nRF24L01.h>
 #include <printf.h>
-#include <Wire.h>
-
-#ifdef ARDUINO_SAMD_VARIANT_COMPLIANCE
-#define SERIAL SerialUSB
-#else
-#define SERIAL Serial
-#endif
-
-unsigned char low_data[8] = { 0 };
-unsigned char high_data[12] = { 0 };
-
-#define NO_TOUCH 0xFE
-#define THRESHOLD 100
-#define ATTINY1_HIGH_ADDR 0x78
-#define ATTINY2_LOW_ADDR 0x77
 
 #include "Stappenmotor.h"
 #include <Arduino.h>
@@ -24,6 +9,7 @@ unsigned char high_data[12] = { 0 };
 #include <Servo.h>
 #include "ServoArm.h"
 #include "Temperatuursensor.h"
+#include "WaterLevelSensor.h"
 
 #include <SPI.h>
 #include <nRF24L01.h>  // to handle this particular modem driver
@@ -61,7 +47,7 @@ void printHex2(unsigned v) {
 Stappenmotor stappenmotor(MOTORINTERFACETYPE, STEPPIN, DIRPIN, ENPIN);
 ServoArm servo(1);
 Temperatuursensor temperatuursensor(LM35PIN);
-// WaterLevelSensor waterLevelSensor;
+WaterLevelSensor waterLevelSensor;
 
 void setup() {
   Serial.begin(9600);
@@ -70,8 +56,8 @@ void setup() {
 
   pinMode(VLOEISTOFPOMPPIN, INPUT);
   digitalWrite(VLOEISTOFPOMPPIN, LOW);
-  Wire.begin();
-  // waterLevelSensor.Attach();
+  // Wire.begin();
+  waterLevelSensor.Attach();
 
   servo.Attach(SERVOPIN);
 
@@ -115,18 +101,18 @@ void loop() {
     Serial.println(rxData[0]);
 
     switch (rxData[0]) {
-      case 0x01:
+      case 1:
         Serial.print("Ontvangen getal: 1 - uitklappen \n");
         stappenmotor.KlapUit();
         servo.KlapUit();
         break;
-      case 0x02:
+      case 2:
         Serial.print("Ontvangen getal: 2 - inklappen \n");
         servo.KlapIn();
         // stappenmotor.KlapIn();
         stappenmotor.SetZeroPosition(BUTTONPIN);
         break;
-      case 0x03:
+      case 3:
         Serial.print("Ontvangen getal: 3 - start \n");
         VoerMetingUit();
         break;
@@ -162,16 +148,6 @@ void VoerMetingUit() {
   radio.stopListening();  // First, stop listening so we can talk.
   Serial.println(F("Now Sending"));
 
-  // Reservoir vullen
-  while (GetWaterLevelPercentage() < 40) {
-    // Vloeistof oppompen
-    // Set vloeistofpomp HIGH
-    digitalWrite(VLOEISTOFPOMPPIN, HIGH);
-    delay(500);
-  }
-  // Set vloeistofpomp LOW
-  digitalWrite(VLOEISTOFPOMPPIN, LOW);
-
   //Temperatuur opmeten en versturen
   int gemiddeldeTemperatuur = ((temperatuursensor.MeetGemiddeldeTemperatuur() + 20) * 10); /* Read Temperature */
   Serial.print("Temperature = " + String(gemiddeldeTemperatuur) + " Degree Celsius\n");
@@ -191,9 +167,6 @@ void VoerMetingUit() {
   }
   Serial.println();
 
-  // radio.stopListening();  // First, stop listening so we can talk.
-  // Serial.println(F("Now Sending"));
-
   // Transmit data to radio
   radio.write(&txData, sizeof(txData));
 
@@ -201,102 +174,29 @@ void VoerMetingUit() {
   Serial.println(F("Now Listing"));
 
   /****************** Receive Mode ***************************/
-}
 
-void GetHigh12SectionValue(void) {
-  memset(high_data, 0, sizeof(high_data));
-  Wire.requestFrom(ATTINY1_HIGH_ADDR, 12);
-  while (12 != Wire.available())
-    ;
+  // Reservoir vullen
+  int percentage = waterLevelSensor.GetWaterLevelPercentage();
+  int vorigePercentage = percentage;
+  int tijd = millis();
 
-  for (int i = 0; i < 12; i++) {
-    high_data[i] = Wire.read();
-  }
-  delay(10);
-}
+  while (percentage < 40) {
+    // Vloeistof oppompen
+    digitalWrite(VLOEISTOFPOMPPIN, HIGH);
 
-void GetLow8SectionValue(void) {
-  memset(low_data, 0, sizeof(low_data));
-  Wire.requestFrom(ATTINY2_LOW_ADDR, 8);
-  while (8 != Wire.available())
-    ;
-
-  for (int i = 0; i < 8; i++) {
-    low_data[i] = Wire.read();  // receive a byte as character
-  }
-  delay(10);
-}
-
-int GetWaterLevelPercentage() {
-  int sensorvalue_min = 250;
-  int sensorvalue_max = 255;
-  int low_count = 0;
-  int high_count = 0;
-
-  // while (1) {
-  uint32_t touch_val = 0;
-  uint8_t trig_section = 0;
-  low_count = 0;
-  high_count = 0;
-  GetLow8SectionValue();
-  GetHigh12SectionValue();
-
-  Serial.println("low 8 sections value = ");
-  for (int i = 0; i < 8; i++) {
-    Serial.print(low_data[i]);
-    Serial.print(".");
-    if (low_data[i] >= sensorvalue_min && low_data[i] <= sensorvalue_max) {
-      low_count++;
+    // Fail safe voor als de water level sensor dezelfde waarde blijft uitmeten, ook als er meer water inzit.
+    if ((millis() - tijd) > 5000 && percentage == vorigePercentage) {
+      Serial.println("Fail safe actief");
+      break;
     }
-    if (low_count == 8) {
-      Serial.print("      ");
-      Serial.print("PASS");
-    }
-  }
-  Serial.println("  ");
-  Serial.println("  ");
-  Serial.println("high 12 sections value = ");
-  for (int i = 0; i < 12; i++) {
-    Serial.print(high_data[i]);
-    Serial.print(".");
 
-    if (high_data[i] >= sensorvalue_min && high_data[i] <= sensorvalue_max) {
-      high_count++;
-    }
-    if (high_count == 12) {
-      Serial.print("      ");
-      Serial.print("PASS");
+    percentage = waterLevelSensor.GetWaterLevelPercentage();
+    if (percentage != vorigePercentage) {
+      vorigePercentage = percentage;
+      tijd = millis();
     }
   }
 
-  Serial.println("  ");
-  Serial.println("  ");
-
-  for (int i = 0; i < 8; i++) {
-    if (low_data[i] > THRESHOLD) {
-      touch_val |= 1 << i;
-    }
-  }
-  for (int i = 0; i < 12; i++) {
-    if (high_data[i] > THRESHOLD) {
-      touch_val |= (uint32_t)1 << (8 + i);
-    }
-  }
-
-  while (touch_val & 0x01) {
-    trig_section++;
-    touch_val >>= 1;
-  }
-
-  int percentage = trig_section * 5;
-
-  SERIAL.print("water level = ");
-  SERIAL.print(trig_section * 5); // percentage
-  SERIAL.println("% ");
-  SERIAL.println(" ");
-  SERIAL.println("*********************************************************");
-
-  return percentage;
-  // delay(1000);
-  // }
+  // Set vloeistofpomp LOW
+  digitalWrite(VLOEISTOFPOMPPIN, LOW);
 }
