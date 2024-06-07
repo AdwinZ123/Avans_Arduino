@@ -21,15 +21,13 @@ ServoArm::~ServoArm() {}
 
 void ServoArm::Attach(int pin) {
   _servo.attach(pin);
-  // _pos = _servo.read();
+
   _nextPos = 0;
   _pos = 0;
   _running = true;
 
   _servo.write(0);
   delay(1000);
-
-  // Update(); // Mogelijk werkt dit niet, even testen
 }
 
 void ServoArm::Detach() {
@@ -68,7 +66,6 @@ void ServoArm::KlapIn() {
   _pos = _klapInPositie;
   _servo.write(_pos);
   delay(500);
-  // _running = true;
 }
 
 void ServoArm::Omhoog() {

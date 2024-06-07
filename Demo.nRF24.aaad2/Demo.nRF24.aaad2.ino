@@ -55,7 +55,7 @@ void setup() {
 
   pinMode(VLOEISTOFPOMPPIN, INPUT);
   digitalWrite(VLOEISTOFPOMPPIN, LOW);
-  // Wire.begin();
+
   waterLevelSensor.Attach();
 
   servo.Attach(SERVOPIN);
@@ -84,8 +84,8 @@ void loop() {
 
   if (radio.available()) {  //'available' means whether valid bytes have been received and are waiting to be read from the receive buffer
     Serial.print("Available \n");
-    // Receive data from radio
 
+    // Receive data from radio
     radio.read(&rxData, sizeof(rxData));
 
     // Print received data in Hex format
@@ -96,9 +96,6 @@ void loop() {
     }
     Serial.println();
 
-    Serial.print("Hoi \n");
-    Serial.println(rxData[0]);
-
     switch (rxData[0]) {
       case 1:
         Serial.print("Ontvangen getal: 1 - uitklappen \n");
@@ -108,7 +105,6 @@ void loop() {
       case 2:
         Serial.print("Ontvangen getal: 2 - inklappen \n");
         servo.KlapIn();
-        // stappenmotor.KlapIn();
         stappenmotor.SetZeroPosition(BUTTONPIN);
         break;
       case 3:

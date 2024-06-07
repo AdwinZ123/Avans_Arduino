@@ -55,7 +55,6 @@ int WaterLevelSensor::GetWaterLevelPercentage() {
   int low_count = 0;
   int high_count = 0;
 
-  // while (1) {
   uint32_t touch_val = 0;
   uint8_t trig_section = 0;
   low_count = 0;
@@ -113,7 +112,7 @@ int WaterLevelSensor::GetWaterLevelPercentage() {
   int percentage = trig_section * 5;
 
   SERIAL.print("water level = ");
-  SERIAL.print(trig_section * 5); // percentage
+  SERIAL.print(percentage);
   SERIAL.println("% ");
   SERIAL.println(" ");
   SERIAL.println("*********************************************************");
