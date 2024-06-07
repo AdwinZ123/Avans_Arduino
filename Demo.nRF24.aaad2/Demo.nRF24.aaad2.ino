@@ -53,7 +53,6 @@ void setup() {
   Serial.begin(9600);
   Serial.println("nRF24 Application ARO" + String(AAAD_ARO) + ", Module" + String(AAAD_MODULE) + " Started!\n");
 
-
   pinMode(VLOEISTOFPOMPPIN, INPUT);
   digitalWrite(VLOEISTOFPOMPPIN, LOW);
   // Wire.begin();
@@ -179,10 +178,14 @@ void VoerMetingUit() {
   int percentage = waterLevelSensor.GetWaterLevelPercentage();
   int vorigePercentage = percentage;
   int tijd = millis();
+  bool isLow = true;
 
   while (percentage < 40) {
     // Vloeistof oppompen
-    digitalWrite(VLOEISTOFPOMPPIN, HIGH);
+    if (isLow) {
+      digitalWrite(VLOEISTOFPOMPPIN, HIGH);
+      isLow = false;
+    }
 
     // Fail safe voor als de water level sensor dezelfde waarde blijft uitmeten, ook als er meer water inzit.
     if ((millis() - tijd) > 5000 && percentage == vorigePercentage) {
